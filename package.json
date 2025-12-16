@@ -1,0 +1,27 @@
+{
+  "name": "pravasi-jaalakam",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A cultural, literary, and community-driven digital platform for the Malayalam-speaking expatriate community",
+  "workspaces": [
+    "backend",
+    "web",
+    "admin"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=backend & npm run dev --workspace=web",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
+

@@ -1,0 +1,422 @@
+# GraphQL Schema for Pravasi Jaalakam
+# Schema-first approach for clear API contract
+
+scalar DateTime
+scalar JSON
+
+# ============================================
+# Authentication & User
+# ============================================
+
+type User {
+  id: ID!
+  clerkId: String!
+  email: String
+  name: String
+  displayName: String
+  avatar: String
+  bio: String
+  role: UserRole!
+  isVerified: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  authoredWorks: [Literature!]!
+  comments: [Comment!]!
+}
+
+enum UserRole {
+  GUEST
+  MEMBER
+  AUTHOR
+  ADMIN
+}
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+# ============================================
+# Literature
+# ============================================
+
+type Literature {
+  id: ID!
+  title: String!
+  titleEn: String  # English translation
+  content: String!
+  excerpt: String
+  type: LiteratureType!
+  language: Language!
+  author: Author!
+  tags: [String!]!
+  coverImage: String
+  status: PublicationStatus!
+  views: Int!
+  likes: Int!
+  isFeatured: Boolean!
+  publishedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  
+  # Relations
+  comments: [Comment!]!
+  likesBy: [User!]!
+}
+
+enum LiteratureType {
+  STORY
+  POEM
+  ARTICLE
+  ESSAY
+}
+
+enum Language {
+  MALAYALAM
+  ENGLISH
+  MIXED
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  MODERATED
+}
+
+type Author {
+  id: ID!
+  user: User!
+  penName: String
+  bio: String
+  bioEn: String
+  avatar: String
+  isVerified: Boolean!
+  socialLinks: JSON
+  totalWorks: Int!
+  totalViews: Int!
+  createdAt: DateTime!
+  
+  # Relations
+  works: [Literature!]!
+}
+
+# ============================================
+# Comments & Engagement
+# ============================================
+
+type Comment {
+  id: ID!
+  content: String!
+  author: User!
+  literature: Literature
+  parentComment: Comment
+  replies: [Comment!]!
+  likes: Int!
+  isEdited: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# ============================================
+# Community Features
+# ============================================
+
+type Classified {
+  id: ID!
+  title: String!
+  description: String!
+  category: ClassifiedCategory!
+  location: String
+  contactInfo: JSON
+  images: [String!]!
+  postedBy: User!
+  status: ClassifiedStatus!
+  expiresAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum ClassifiedCategory {
+  JOB
+  HOUSING
+  SERVICES
+  FOR_SALE
+  WANTED
+  COMMUNITY
+}
+
+enum ClassifiedStatus {
+  ACTIVE
+  SOLD
+  EXPIRED
+  REMOVED
+}
+
+type Event {
+  id: ID!
+  title: String!
+  titleEn: String
+  description: String!
+  descriptionEn: String
+  location: String!
+  startDate: DateTime!
+  endDate: DateTime
+  organizer: User!
+  image: String
+  isPublic: Boolean!
+  attendees: [User!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+# ============================================
+# Moderation
+# ============================================
+
+type Report {
+  id: ID!
+  type: ReportType!
+  targetType: ReportTargetType!
+  targetId: ID!
+  reason: String!
+  reportedBy: User!
+  status: ReportStatus!
+  moderatorNotes: String
+  createdAt: DateTime!
+  resolvedAt: DateTime
+}
+
+enum ReportType {
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  COPYRIGHT
+  OTHER
+}
+
+enum ReportTargetType {
+  LITERATURE
+  COMMENT
+  CLASSIFIED
+  USER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+# ============================================
+# Queries
+# ============================================
+
+type Query {
+  # User & Auth
+  me: User
+  user(id: ID!): User
+  
+  # Literature
+  literature(id: ID!): Literature
+  literatures(
+    type: LiteratureType
+    language: Language
+    authorId: ID
+    tags: [String!]
+    featured: Boolean
+    limit: Int = 20
+    offset: Int = 0
+  ): [Literature!]!
+  searchLiterature(query: String!, limit: Int = 20): [Literature!]!
+  
+  # Author
+  author(id: ID!): Author
+  authors(verified: Boolean, limit: Int = 20): [Author!]!
+  
+  # Community
+  classifieds(
+    category: ClassifiedCategory
+    location: String
+    limit: Int = 20
+    offset: Int = 0
+  ): [Classified!]!
+  classified(id: ID!): Classified
+  
+  events(
+    upcoming: Boolean = true
+    limit: Int = 20
+  ): [Event!]!
+  event(id: ID!): Event
+  
+  # Admin
+  reports(status: ReportStatus, limit: Int = 50): [Report!]!
+  report(id: ID!): Report
+}
+
+# ============================================
+# Mutations
+# ============================================
+
+type Mutation {
+  # Auth
+  updateProfile(input: UpdateProfileInput!): User!
+  
+  # Literature
+  createLiterature(input: CreateLiteratureInput!): Literature!
+  updateLiterature(id: ID!, input: UpdateLiteratureInput!): Literature!
+  deleteLiterature(id: ID!): Boolean!
+  publishLiterature(id: ID!): Literature!
+  
+  # Author
+  createAuthorProfile(input: CreateAuthorProfileInput!): Author!
+  updateAuthorProfile(input: UpdateAuthorProfileInput!): Author!
+  
+  # Engagement
+  likeLiterature(id: ID!): Literature!
+  unlikeLiterature(id: ID!): Literature!
+  createComment(input: CreateCommentInput!): Comment!
+  updateComment(id: ID!, content: String!): Comment!
+  deleteComment(id: ID!): Boolean!
+  
+  # Community
+  createClassified(input: CreateClassifiedInput!): Classified!
+  updateClassified(id: ID!, input: UpdateClassifiedInput!): Classified!
+  deleteClassified(id: ID!): Boolean!
+  
+  createEvent(input: CreateEventInput!): Event!
+  updateEvent(id: ID!, input: UpdateEventInput!): Event!
+  deleteEvent(id: ID!): Boolean!
+  attendEvent(id: ID!): Event!
+  
+  # Moderation
+  reportContent(input: ReportContentInput!): Report!
+  
+  # Admin
+  moderateContent(id: ID!, action: ModerationAction!, notes: String): Boolean!
+  verifyAuthor(id: ID!): Author!
+}
+
+# ============================================
+# Input Types
+# ============================================
+
+input UpdateProfileInput {
+  name: String
+  displayName: String
+  bio: String
+  avatar: String
+}
+
+input CreateLiteratureInput {
+  title: String!
+  titleEn: String
+  content: String!
+  type: LiteratureType!
+  language: Language!
+  tags: [String!]!
+  coverImage: String
+  excerpt: String
+}
+
+input UpdateLiteratureInput {
+  title: String
+  titleEn: String
+  content: String
+  tags: [String!]
+  coverImage: String
+  excerpt: String
+}
+
+input CreateAuthorProfileInput {
+  penName: String
+  bio: String
+  bioEn: String
+  avatar: String
+  socialLinks: JSON
+}
+
+input UpdateAuthorProfileInput {
+  penName: String
+  bio: String
+  bioEn: String
+  avatar: String
+  socialLinks: JSON
+}
+
+input CreateCommentInput {
+  content: String!
+  literatureId: ID
+  parentCommentId: ID
+}
+
+input CreateClassifiedInput {
+  title: String!
+  description: String!
+  category: ClassifiedCategory!
+  location: String
+  contactInfo: JSON
+  images: [String!]!
+  expiresAt: DateTime
+}
+
+input UpdateClassifiedInput {
+  title: String
+  description: String
+  category: ClassifiedCategory
+  location: String
+  contactInfo: JSON
+  images: [String!]
+  status: ClassifiedStatus
+}
+
+input CreateEventInput {
+  title: String!
+  titleEn: String
+  description: String!
+  descriptionEn: String
+  location: String!
+  startDate: DateTime!
+  endDate: DateTime
+  image: String
+  isPublic: Boolean = true
+}
+
+input UpdateEventInput {
+  title: String
+  titleEn: String
+  description: String
+  descriptionEn: String
+  location: String
+  startDate: DateTime
+  endDate: DateTime
+  image: String
+  isPublic: Boolean
+}
+
+input ReportContentInput {
+  type: ReportType!
+  targetType: ReportTargetType!
+  targetId: ID!
+  reason: String!
+}
+
+enum ModerationAction {
+  APPROVE
+  REJECT
+  ARCHIVE
+  DELETE
+}
+
+# ============================================
+# Subscriptions (for real-time features)
+# ============================================
+
+type Subscription {
+  literatureUpdated(id: ID!): Literature!
+  newComment(literatureId: ID!): Comment!
+}
+

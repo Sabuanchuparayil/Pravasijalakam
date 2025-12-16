@@ -1,0 +1,306 @@
+// Prisma schema for Pravasi Jaalakam
+// PostgreSQL database schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Authentication
+// ============================================
+
+enum UserRole {
+  GUEST
+  MEMBER
+  AUTHOR
+  ADMIN
+}
+
+model User {
+  id          String   @id @default(cuid())
+  clerkId     String   @unique
+  email       String?  @unique
+  name        String?
+  displayName String?
+  avatar      String?
+  bio         String?
+  role        UserRole @default(MEMBER)
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  authorProfile Author?
+  comments      Comment[]
+  likes         LiteratureLike[]
+  reports       Report[]
+  classifieds   Classified[]
+  events        Event[] @relation("EventOrganizer")
+  eventAttendees EventAttendee[]
+  
+  @@index([clerkId])
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================
+// Author Profile
+// ============================================
+
+model Author {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  penName     String?
+  bio         String?
+  bioEn       String?
+  avatar      String?
+  isVerified  Boolean  @default(false)
+  socialLinks Json?    // { twitter, facebook, instagram, website }
+  totalWorks  Int      @default(0)
+  totalViews  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  works Literature[] @relation("AuthorWorks")
+
+  @@index([userId])
+  @@map("authors")
+}
+
+// ============================================
+// Literature
+// ============================================
+
+enum LiteratureType {
+  STORY
+  POEM
+  ARTICLE
+  ESSAY
+}
+
+enum Language {
+  MALAYALAM
+  ENGLISH
+  MIXED
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  MODERATED
+}
+
+model Literature {
+  id          String            @id @default(cuid())
+  title       String
+  titleEn     String?
+  content     String            @db.Text
+  excerpt     String?           @db.Text
+  type        LiteratureType
+  language    Language
+  authorId    String
+  author      Author            @relation("AuthorWorks", fields: [authorId], references: [id], onDelete: Cascade)
+  tags        String[]          @default([])
+  coverImage  String?
+  status      PublicationStatus @default(DRAFT)
+  views       Int               @default(0)
+  likes       Int               @default(0)
+  isFeatured  Boolean           @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  literatureLikes LiteratureLike[] @relation("LiteratureLikes")
+  commentThreads Comment[] @relation("CommentThreads")
+
+  @@index([authorId])
+  @@index([status])
+  @@index([type])
+  @@index([language])
+  @@index([isFeatured])
+  @@index([publishedAt])
+  @@map("literature")
+}
+
+// ============================================
+// Comments
+// ============================================
+
+model Comment {
+  id            String    @id @default(cuid())
+  content       String    @db.Text
+  authorId      String
+  author        User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  literatureId  String?
+  literature    Literature? @relation("CommentThreads", fields: [literatureId], references: [id], onDelete: Cascade)
+  parentCommentId String?
+  parentComment Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies       Comment[] @relation("CommentReplies")
+  likes         Int       @default(0)
+  isEdited      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([authorId])
+  @@index([literatureId])
+  @@index([parentCommentId])
+  @@map("comments")
+}
+
+// ============================================
+// Literature Likes
+// ============================================
+
+model LiteratureLike {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  literatureId String
+  literature   Literature @relation("LiteratureLikes", fields: [literatureId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([userId, literatureId])
+  @@index([userId])
+  @@index([literatureId])
+  @@map("literature_likes")
+}
+
+// ============================================
+// Classifieds
+// ============================================
+
+enum ClassifiedCategory {
+  JOB
+  HOUSING
+  SERVICES
+  FOR_SALE
+  WANTED
+  COMMUNITY
+}
+
+enum ClassifiedStatus {
+  ACTIVE
+  SOLD
+  EXPIRED
+  REMOVED
+}
+
+model Classified {
+  id          String            @id @default(cuid())
+  title       String
+  description String            @db.Text
+  category    ClassifiedCategory
+  location    String?
+  contactInfo Json?             // { phone, email, whatsapp }
+  images      String[]          @default([])
+  postedById  String
+  postedBy    User              @relation(fields: [postedById], references: [id], onDelete: Cascade)
+  status      ClassifiedStatus  @default(ACTIVE)
+  expiresAt   DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([postedById])
+  @@index([category])
+  @@index([status])
+  @@index([location])
+  @@map("classifieds")
+}
+
+// ============================================
+// Events
+// ============================================
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  titleEn     String?
+  description String   @db.Text
+  descriptionEn String? @db.Text
+  location    String
+  startDate   DateTime
+  endDate     DateTime?
+  organizerId String
+  organizer   User     @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  image       String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  attendees EventAttendee[]
+
+  @@index([organizerId])
+  @@index([startDate])
+  @@index([isPublic])
+  @@map("events")
+}
+
+model EventAttendee {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_attendees")
+}
+
+// ============================================
+// Moderation & Reports
+// ============================================
+
+enum ReportType {
+  SPAM
+  HARASSMENT
+  INAPPROPRIATE_CONTENT
+  COPYRIGHT
+  OTHER
+}
+
+enum ReportTargetType {
+  LITERATURE
+  COMMENT
+  CLASSIFIED
+  USER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWING
+  RESOLVED
+  DISMISSED
+}
+
+model Report {
+  id            String          @id @default(cuid())
+  type          ReportType
+  targetType    ReportTargetType
+  targetId      String
+  reason        String          @db.Text
+  reportedById  String
+  reportedBy    User            @relation(fields: [reportedById], references: [id], onDelete: Cascade)
+  status        ReportStatus    @default(PENDING)
+  moderatorNotes String?        @db.Text
+  createdAt     DateTime        @default(now())
+  resolvedAt    DateTime?
+
+  @@index([reportedById])
+  @@index([targetType, targetId])
+  @@index([status])
+  @@map("reports")
+}
+
